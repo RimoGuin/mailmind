@@ -1,0 +1,42 @@
+# --- Python / Environment ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+*.log
+
+# --- MailMind Data (Crucial) ---
+# We ignore the raw and processed data folders because of size
+data/raw/
+data/processed/
+# Keep the directory structure but ignore the massive files
+data/labelled/*.csv
+data/labelled/*.jsonl
+# Optional: if you want to keep the folders in git, add an empty .gitkeep in them
+# and uncomment the next line:
+# !data/**/*.gitkeep
+
+# --- Model Weights & Artifacts ---
+# XGBoost/Joblib models are binary and shouldn't be in version control
+*.joblib
+*.pkl
+*.pth
+*.onnx
+models/importance/*.joblib
+
+# --- Secrets & Config ---
+.env
+.flaskenv
+
+# --- IDEs & System ---
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.bak
+
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
