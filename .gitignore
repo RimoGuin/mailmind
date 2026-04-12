@@ -1,0 +1,9 @@
+email_intelligence.db
+email_intelligence.db-shm
+email_intelligence.db-wal
+pipeline.log
+*.log
+__pycache__/
+*.pyc
+.env
+clear_spamham.py
