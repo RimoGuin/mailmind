@@ -94,6 +94,7 @@ cleaned_emails = Table("cleaned_emails", cleaned_meta,
     Column("reply_chain_depth", Integer, default=0),
     Column("email_length",      Integer, default=0),
     Column("body_length",       Integer),
+    Column("body_tfidf",        Text),
     # --- Threading ---
     Column("thread_id",         String(200)),
     Column("content_hash",      String(64), unique=True),

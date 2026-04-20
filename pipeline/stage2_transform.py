@@ -35,6 +35,15 @@ logger = logging.getLogger(__name__)
 CHUNK_SIZE   = 500
 MAX_BODY_LEN = 10_000   # store full body in DB (trim at classification time)
 
+STOPWORDS = {
+    "a","an","the","and","or","but","in","on","at","to","for","of","with",
+    "is","are","was","were","be","been","being","have","has","had","do","does",
+    "did","will","would","could","should","may","might","shall","can","i","me",
+    "my","we","our","you","your","he","she","it","they","them","their","this",
+    "that","these","those","not","no","so","if","as","by","from","up","about",
+    "into","than","then","its","also","just","more","please","hi","hello","dear",
+    "thanks","thank","regards","best","sincerely","cheers","sent","email","mail",
+}
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -96,6 +105,21 @@ def _compute_structural(subject: str, body: str, cc: str) -> dict:
         "email_length":      len(body or ""),
     }
 
+def _clean_for_tfidf(text: str) -> str:
+    """Strip reply chains, normalise, remove stopwords. No external deps."""
+    # Port of main branch's clean_body — strip quoted history
+    text = re.split(r'-{3,}\s*(original message|forwarded by)\s*-{3,}',
+                     text, flags=re.IGNORECASE)[0]
+    text = '\n'.join(l for l in text.split('\n') if not l.strip().startswith('>'))
+    text = re.split(r'\n\s*(regards|thanks|best regards|sincerely|cheers)\s*,?\s*\n',
+                     text, flags=re.IGNORECASE)[0]
+    # Lowercase + keep only letters/spaces
+    text = text.lower()
+    text = re.sub(r'[^a-z\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    # Remove stopwords and very short tokens
+    tokens = [w for w in text.split() if w not in STOPWORDS and len(w) > 2]
+    return ' '.join(tokens)
 
 # ── Enron-specific parser ─────────────────────────────────────────────────────
 
@@ -244,7 +268,7 @@ def _transform_chunk(engine: Engine, rows: list[dict]) -> int:
 
             # ── Structural fields ────────────────────────────────
             structural = _compute_structural(subj, body, cc_raw)
-
+            body_tfidf = _clean_for_tfidf(body)
             result = conn.execute(
                 insert(cleaned_emails).values(
                     raw_id             = row["id"],
@@ -265,6 +289,7 @@ def _transform_chunk(engine: Engine, rows: list[dict]) -> int:
                     hour               = ts.hour        if ts else None,
                     thread_id          = row.get("thread_id_raw"),
                     content_hash       = content_hash,
+                    body_tfidf         = body_tfidf,
                 )
             )
             email_id = result.inserted_primary_key[0]
