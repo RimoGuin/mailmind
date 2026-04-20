@@ -30,6 +30,7 @@ if __name__ == "__main__":
                     'cc_count': 0,
                     'reply_chain_depth': 0,
                     'email_length': len(body),
+                    'source_dataset': 'trec',
                 }
                 
                 # TREC Mapping: 1=Spam, 0=Ham

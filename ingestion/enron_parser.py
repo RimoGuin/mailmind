@@ -40,6 +40,7 @@ if __name__ == "__main__":
                         'cc_count': len(msg.get('Cc', '').split(',')) if msg.get('Cc') else 0,
                         'reply_chain_depth': body.count('>'),
                         'email_length': len(body),
+                        'source_dataset': 'enron',
                     }
                     
                     lbl, conf, res, src = label_email(parsed)

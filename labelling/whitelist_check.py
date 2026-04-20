@@ -2,8 +2,7 @@ def whitelist_check(row: dict) -> tuple:
     """
     Returns: (label, confidence, reason, is_whitelisted)
     """
-    # Placeholder: Add your internal company domains or executive emails here - for trusted client/vendors
-    trusted_domains = ['enron.com', 'google.com', 'microsoft.com']
+    trusted_domains = ['enron.com', 'google.com', 'p360.com']
     from_addr = str(row.get('from', '')).lower()
     
     for domain in trusted_domains:
