@@ -53,6 +53,7 @@ def stage_enrich(engine, args):
         dataset_name=args.dataset,
         limit=args.limit,
         skip_classification=args.skip_classification,
+        skip_aggregates=args.skip_aggregates,
     )
     classified = r.get("classified", "skipped")
     logger.info(f"STAGE 3 ENRICH complete — {classified} classified ({time.time()-t:.1f}s)")
@@ -102,7 +103,8 @@ Examples:
     parser.add_argument("--limit",   type=int, help="Max emails to classify (stage 3)")
     parser.add_argument("--skip-classification", action="store_true", dest="skip_classification",
                         help="Skip Claude API calls, only rebuild aggregates")
-
+    parser.add_argument("--skip-aggregates", action="store_true", dest="skip_aggregates",
+                        help="Skip rebuilding heavy SQL aggregates (useful for long batch labeling runs)")
     args = parser.parse_args()
 
     logger.info(f"Initializing DB: {args.db}")

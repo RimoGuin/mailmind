@@ -4,7 +4,7 @@ STAGE 3 — Enrich
 cleaned.* → results.classifications + results.sender_profiles
                  + results.vendor_metrics + results.client_trails
 
-  Part A: Claude API classification (batched, idempotent)
+  Part A: Groq API classification (batched, idempotent)
   Part B: Aggregate analytics written back to results.*
 
 Idempotent: skips emails already in results_classifications.
@@ -17,9 +17,12 @@ import time
 from datetime import datetime
 from typing import Optional
 
-import anthropic
+from groq import Groq
+import groq
+from openai import OpenAI
 from sqlalchemy import insert, select, update, text, func
 from sqlalchemy.engine import Engine
+from dotenv import load_dotenv
 
 from db.schema import (
     cleaned_emails, cleaned_senders,
@@ -28,23 +31,26 @@ from db.schema import (
 )
 
 logger = logging.getLogger(__name__)
+load_dotenv()
 
-BATCH_SIZE  = 5
-MAX_RETRIES = 3
-MODEL       = "claude-sonnet-4-20250514"
+BATCH_SIZE  = 1
+MAX_RETRIES = 5
+MODEL       = "llama-3.1"
+# MODEL = "gemini-2.5-flash"
 
 SENTIMENT_SCORE = {"positive": 1.0, "neutral": 0.0, "negative": -1.0, "urgent": -0.5}
 
 SYSTEM_PROMPT = """You are an expert email classifier for a professional inbox intelligence system.
-Classify each email in the batch and return a JSON array — one object per email, same order as input.
+Classify each email in the batch and return a JSON object containing a single key "results" which holds an array of classification objects (one per email, in the exact same order as the input).
 
-Each object must have exactly these fields:
+Each object in the array must have exactly these fields:
   priority:       "urgent" | "high" | "normal" | "low"
   sender_type:    "client" | "vendor" | "internal" | "personal" | "spam" | "unknown"
   intent:         "request" | "update" | "complaint" | "inquiry" | "fyi" | "meeting" | "other"
   sentiment:      "positive" | "neutral" | "negative" | "urgent"
   summary:        one sentence, max 20 words
   reason:         brief explanation of why this priority was assigned (max 15 words)
+  confidence:     "high" | "medium" | "low"
   follow_up_date: "YYYY-MM-DD" if a deadline or follow-up date is mentioned, else null
 
 Priority guide:
@@ -53,8 +59,7 @@ Priority guide:
   normal = routine professional communication
   low    = newsletters, notifications, non-actionable FYIs
 
-Return ONLY valid JSON array. No markdown, no preamble."""
-
+Output ONLY valid JSON. No markdown formatting, no preamble."""
 
 # ════════════════════════════════════════════════════════════════
 #  PART A — Classification
@@ -65,8 +70,16 @@ def run_classification(engine: Engine, dataset_name: str = None, limit: int = No
     Classify unclassified cleaned emails via Claude API.
     Returns number of newly classified emails.
     """
-    client = anthropic.Anthropic()
-
+    import os
+    # client = Groq(api_key=os.getenv("GROQ_API_KEY")    )
+    # client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+    # client = OpenAI(base_url = "https://generativelanguage.googleapis.com/v1beta/openai/", api_key=os.getenv("GEMINI_API_KEY"))
+    client = OpenAI(
+        base_url="https://purple-recommendation-powerseller-married.trycloudflare.com/v1",
+        api_key="ollama" 
+    )
+    MODEL = "llama3.1:8b"
+    # MODEL = "gemini-2.5-flash"
     with engine.connect() as conn:
         already_done = set(
             r[0] for r in conn.execute(select(results_classifications.c.email_id)).fetchall()
@@ -82,6 +95,8 @@ def run_classification(engine: Engine, dataset_name: str = None, limit: int = No
         if dataset_name:
             q = q.where(cleaned_emails.c.dataset_name == dataset_name)
 
+        q = q.order_by(func.random())
+
         if limit:
             q = q.limit(limit)
 
@@ -89,7 +104,7 @@ def run_classification(engine: Engine, dataset_name: str = None, limit: int = No
 
     pending = [r for r in all_rows if r[0] not in already_done]
     logger.info(f"[ENRICH-A] {len(pending)} emails to classify | {len(already_done)} already done")
-
+    time.sleep(0.1)
     if not pending:
         return 0
 
@@ -104,6 +119,10 @@ def run_classification(engine: Engine, dataset_name: str = None, limit: int = No
 
         with engine.begin() as conn:
             for row, label in zip(batch, labels):
+
+                conf_map = {"high": 0.9, "medium": 0.6, "low": 0.3}
+                conf_str = str(label.get("confidence", "low")).lower()
+
                 try:
                     conn.execute(
                         insert(results_classifications).values(
@@ -116,8 +135,8 @@ def run_classification(engine: Engine, dataset_name: str = None, limit: int = No
                             summary      = label.get("summary",     ""),
                             reason       = label.get("reason",      ""),
                             follow_up_date = label.get("follow_up_date", None),
-                            confidence   = None,          # populated in OSS phase
-                            label_source = "claude",
+                            confidence   = conf_map.get(conf_str, 0.5),         # populated in OSS phase
+                            label_source ="groq_8b",
                             model_used   = MODEL,
                         )
                     )
@@ -131,42 +150,58 @@ def run_classification(engine: Engine, dataset_name: str = None, limit: int = No
 
 
 def _build_prompt(emails: list[dict]) -> str:
-    lines = []
-    for idx, e in enumerate(emails):
-        lines += [f"--- EMAIL {idx+1} ---",
-                  f"From: {e['sender']}",
-                  f"Subject: {e['subject']}",
-                  f"Body:\n{e['body']}", ""]
-    return "\n".join(lines)
-
+    # Pass clean JSON to prevent formatting hallucinations
+    return json.dumps(emails, indent=2)
 
 def _classify_with_retry(client, emails: list[dict]) -> list[dict]:
     fallback = {"priority": "normal", "sender_type": "unknown",
-                "intent": "other", "sentiment": "neutral", "summary": "Classification unavailable."}
-    prompt = _build_prompt(emails)
-
+                "intent": "other", "sentiment": "neutral", "summary": "Classification unavailable.", "confidence": "low"}
+    
+    prompt_content = _build_prompt(emails)
+    # MODEL = "gemini-2.5-flash"
+    # MODEL = "llama-3.1-8b-instant" # FOR OLLAMA
+    MODEL = "llama3.1:8b"  
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            resp = client.messages.create(
-                model=MODEL, max_tokens=1024,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": prompt}],
+            resp = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt_content}
+                ],
+                response_format={"type": "json_object"},
+                # max_tokens=4000,
+                max_tokens=4000,
+                temperature=0.0 # Strict determinism for labeling
             )
-            raw = resp.content[0].text
-            clean = re.sub(r"```(?:json)?|```", "", raw).strip()
-            result = json.loads(clean)
-            if isinstance(result, list) and len(result) == len(emails):
-                return result
-        except anthropic.RateLimitError:
-            wait = 2 ** attempt
-            logger.warning(f"Rate limit — waiting {wait}s")
-            time.sleep(wait)
+            
+            raw = resp.choices[0].message.content
+
+            if not raw or not raw.strip().endswith('}'):
+                raise ValueError("LLM returned truncated or incomplete JSON string.")
+            
+            result_obj = json.loads(raw)
+            results_array = result_obj.get("results", [])
+            
+            if len(results_array) == len(emails):
+                return results_array
+            else:
+                logger.warning(f"Batch size mismatch. Expected {len(emails)}, got {len(results_array)}")
+                
+        # except groq.RateLimitError as e:
+        #     # Groq Free Tier TPM/RPM limits backoff
+        #     wait = 10 * (2 ** attempt) 
+        #     logger.warning(f"Groq Rate limit hit — waiting {wait}s.")
+        #     time.sleep(wait)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON Parse Error on attempt {attempt}: {e}. The model likely hit a token limit or hallucinated.")
+            time.sleep(5) # Give the API a moment before retrying
         except Exception as e:
             logger.error(f"Classification attempt {attempt} failed: {e}")
-            time.sleep(2)
+            # If we hit a 429 or 503, wait longer
+            time.sleep(0.1)
 
     return [fallback.copy() for _ in emails]
-
 
 # ════════════════════════════════════════════════════════════════
 #  PART B — Analytics Aggregates
@@ -354,9 +389,13 @@ def _parse_timestamps(csv_str: Optional[str]) -> list:
 #  Combined entry point
 # ════════════════════════════════════════════════════════════════
 
-def run(engine: Engine, dataset_name: str = None, limit: int = None, skip_classification: bool = False) -> dict:
+def run(engine: Engine, dataset_name: str = None, limit: int = None, skip_classification: bool = False, skip_aggregates: bool = False) -> dict:
     results = {}
     if not skip_classification:
         results["classified"] = run_classification(engine, dataset_name=dataset_name, limit=limit)
-    run_aggregates(engine)
+    
+    # Skip heavy analytics until all Phase 1 labeling is done
+    if not skip_aggregates:
+        run_aggregates(engine)
+        
     return results
