@@ -55,8 +55,9 @@ def stage_enrich(engine, args):
         skip_classification=args.skip_classification,
         skip_aggregates=args.skip_aggregates,
     )
+    spam_overridden = r.get("spam_overridden", 0)
     classified = r.get("classified", "skipped")
-    logger.info(f"STAGE 3 ENRICH complete — {classified} classified ({time.time()-t:.1f}s)")
+    logger.info(f"STAGE 3 ENRICH complete — {spam_overridden} spam corrected, {classified} classified ({time.time()-t:.1f}s)")
     return r
 
 

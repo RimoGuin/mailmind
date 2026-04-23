@@ -1,0 +1,14 @@
+TARGET: intent
+Model: distilbert-base-uncased fine-tuned
+Train: 4,361 | Test: 770
+Best epoch macro-F1: 0.7179
+
+              precision    recall  f1-score   support
+
+      action       0.53      0.63      0.58       193
+        info       0.81      0.74      0.78       429
+       other       0.80      0.80      0.80       148
+
+    accuracy                           0.73       770
+   macro avg       0.71      0.73      0.72       770
+weighted avg       0.74      0.73      0.73       770

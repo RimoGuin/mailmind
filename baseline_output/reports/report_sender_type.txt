@@ -1,0 +1,53 @@
+TARGET: sender_type
+Train samples: 4,221 | Test samples: 745
+TF-IDF vocab: 20,000 features
+Best model: xgboost  (macro-F1 = 0.5484)
+
+──────────────────────────────────────────────────
+LOGISTIC_REGRESSION  |  macro-F1: 0.5446
+──────────────────────────────────────────────────
+              precision    recall  f1-score   support
+
+      client       0.00      0.00      0.00         7
+    internal       0.80      0.72      0.76       412
+    personal       0.37      0.67      0.48        39
+        spam       0.89      0.99      0.94       103
+      vendor       0.55      0.56      0.55       184
+
+    accuracy                           0.71       745
+   macro avg       0.52      0.59      0.54       745
+weighted avg       0.72      0.71      0.71       745
+
+
+──────────────────────────────────────────────────
+DECISION_TREE  |  macro-F1: 0.3861
+──────────────────────────────────────────────────
+              precision    recall  f1-score   support
+
+      client       0.00      0.00      0.00         7
+    internal       0.81      0.20      0.32       412
+    personal       0.23      0.26      0.24        39
+        spam       0.91      0.93      0.92       103
+      vendor       0.31      0.80      0.45       184
+
+    accuracy                           0.45       745
+   macro avg       0.45      0.44      0.39       745
+weighted avg       0.66      0.45      0.43       745
+
+
+──────────────────────────────────────────────────
+XGBOOST ← BEST  |  macro-F1: 0.5484
+──────────────────────────────────────────────────
+              precision    recall  f1-score   support
+
+      client       0.00      0.00      0.00         7
+    internal       0.75      0.88      0.81       412
+    personal       0.67      0.36      0.47        39
+        spam       0.94      0.99      0.96       103
+      vendor       0.61      0.43      0.51       184
+
+    accuracy                           0.75       745
+   macro avg       0.59      0.53      0.55       745
+weighted avg       0.73      0.75      0.73       745
+
+

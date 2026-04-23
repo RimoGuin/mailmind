@@ -1,0 +1,32 @@
+BASELINE SUMMARY
+============================================================
+
+PRIORITY
+  Best model : xgboost
+  Macro-F1   : 0.5727
+  Classes    : action_needed, low, normal
+  Train/Test : 4,221 / 745
+
+     logistic_regression       macro-F1: 0.5540
+     decision_tree             macro-F1: 0.5225
+   ← xgboost                   macro-F1: 0.5727
+
+SENDER_TYPE
+  Best model : xgboost
+  Macro-F1   : 0.5484
+  Classes    : client, internal, personal, spam, vendor
+  Train/Test : 4,221 / 745
+
+     logistic_regression       macro-F1: 0.5446
+     decision_tree             macro-F1: 0.3861
+   ← xgboost                   macro-F1: 0.5484
+
+INTENT
+  Best model : logistic_regression
+  Macro-F1   : 0.6242
+  Classes    : action, info, other
+  Train/Test : 4,221 / 745
+
+   ← logistic_regression       macro-F1: 0.6242
+     decision_tree             macro-F1: 0.5353
+     xgboost                   macro-F1: 0.6231
