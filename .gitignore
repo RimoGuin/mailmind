@@ -51,4 +51,5 @@ models/importance/*.joblib
 */.ipynb_checkpoints/*
 
 clear_spamham.py
-D:\mailmind\distilbert_output\models\
+distilbert_output/models/
+baseline_output/models/
