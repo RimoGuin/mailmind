@@ -1,0 +1,47 @@
+TARGET: priority
+Train samples: 4,221 | Test samples: 745
+TF-IDF vocab: 20,000 features
+Best model: xgboost  (macro-F1 = 0.5727)
+
+──────────────────────────────────────────────────
+LOGISTIC_REGRESSION  |  macro-F1: 0.5540
+──────────────────────────────────────────────────
+               precision    recall  f1-score   support
+
+action_needed       0.24      0.78      0.37        92
+          low       0.75      0.69      0.72       210
+       normal       0.78      0.45      0.57       443
+
+     accuracy                           0.56       745
+    macro avg       0.59      0.64      0.55       745
+ weighted avg       0.70      0.56      0.59       745
+
+
+──────────────────────────────────────────────────
+DECISION_TREE  |  macro-F1: 0.5225
+──────────────────────────────────────────────────
+               precision    recall  f1-score   support
+
+action_needed       0.22      0.54      0.31        92
+          low       0.72      0.54      0.62       210
+       normal       0.71      0.58      0.64       443
+
+     accuracy                           0.56       745
+    macro avg       0.55      0.55      0.52       745
+ weighted avg       0.65      0.56      0.59       745
+
+
+──────────────────────────────────────────────────
+XGBOOST ← BEST  |  macro-F1: 0.5727
+──────────────────────────────────────────────────
+               precision    recall  f1-score   support
+
+action_needed       0.71      0.13      0.22        92
+          low       0.83      0.59      0.69       210
+       normal       0.71      0.93      0.81       443
+
+     accuracy                           0.74       745
+    macro avg       0.75      0.55      0.57       745
+ weighted avg       0.75      0.74      0.70       745
+
+

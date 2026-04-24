@@ -1,0 +1,47 @@
+TARGET: intent
+Train samples: 4,221 | Test samples: 745
+TF-IDF vocab: 20,000 features
+Best model: logistic_regression  (macro-F1 = 0.6242)
+
+──────────────────────────────────────────────────
+LOGISTIC_REGRESSION ← BEST  |  macro-F1: 0.6242
+──────────────────────────────────────────────────
+              precision    recall  f1-score   support
+
+      action       0.41      0.49      0.44       189
+        info       0.72      0.65      0.68       412
+       other       0.73      0.76      0.75       144
+
+    accuracy                           0.63       745
+   macro avg       0.62      0.63      0.62       745
+weighted avg       0.64      0.63      0.63       745
+
+
+──────────────────────────────────────────────────
+DECISION_TREE  |  macro-F1: 0.5353
+──────────────────────────────────────────────────
+              precision    recall  f1-score   support
+
+      action       0.32      0.75      0.45       189
+        info       0.76      0.32      0.45       412
+       other       0.73      0.68      0.71       144
+
+    accuracy                           0.50       745
+   macro avg       0.60      0.58      0.54       745
+weighted avg       0.64      0.50      0.50       745
+
+
+──────────────────────────────────────────────────
+XGBOOST  |  macro-F1: 0.6231
+──────────────────────────────────────────────────
+              precision    recall  f1-score   support
+
+      action       0.47      0.24      0.32       189
+        info       0.68      0.87      0.76       412
+       other       0.87      0.72      0.79       144
+
+    accuracy                           0.68       745
+   macro avg       0.67      0.61      0.62       745
+weighted avg       0.66      0.68      0.65       745
+
+

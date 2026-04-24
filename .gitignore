@@ -51,3 +51,5 @@ models/importance/*.joblib
 */.ipynb_checkpoints/*
 
 clear_spamham.py
+distilbert_output/models/
+baseline_output/models/

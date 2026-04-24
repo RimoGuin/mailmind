@@ -25,7 +25,7 @@ from sqlalchemy.engine import Engine
 from dotenv import load_dotenv
 
 from db.schema import (
-    cleaned_emails, cleaned_senders,
+    cleaned_emails, cleaned_senders, raw_emails,  # <-- Added raw_emails here
     results_classifications, results_sender_profiles,
     results_vendor_metrics, results_client_trails,
 )
@@ -33,7 +33,7 @@ from db.schema import (
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-BATCH_SIZE  = 1
+BATCH_SIZE  = 2
 MAX_RETRIES = 5
 MODEL       = "llama-3.1"
 # MODEL = "gemini-2.5-flash"
@@ -61,25 +61,93 @@ Priority guide:
 
 Output ONLY valid JSON. No markdown formatting, no preamble."""
 
+
 # ════════════════════════════════════════════════════════════════
-#  PART A — Classification
+#  PART A — Retroactive Spam Correction
+# ════════════════════════════════════════════════════════════════
+
+def override_existing_spam(engine: Engine) -> int:
+    """
+    Overwrites existing classifications for spam by looking back at the 
+    raw_emails.extra_fields column (bypassing the need to alter Stage 1 or 2).
+    """
+    logger.info("[ENRICH] Checking for existing spam classifications to override...")
+    with engine.begin() as conn:
+        # Join cleaned_emails back to raw_emails to access the extra_fields
+        q = select(cleaned_emails.c.id, raw_emails.c.extra_fields).select_from(
+            cleaned_emails.join(raw_emails, cleaned_emails.c.raw_id == raw_emails.c.id)
+        )
+        
+        rows = conn.execute(q).fetchall()
+        spam_ids = []
+
+        # Extract the ground truth label from the JSON/string
+        for c_id, extra_data in rows:
+            if not extra_data: 
+                continue
+                
+            try:
+                if isinstance(extra_data, str):
+                    extra = json.loads(extra_data.replace("'", '"')) 
+                else:
+                    extra = extra_data
+                
+                orig_label = str(extra.get("original_label", "")).strip().lower()
+                
+                if orig_label in ['spam', '1', 'true', 'yes']:
+                    spam_ids.append(c_id)
+            except Exception:
+                pass 
+
+        if not spam_ids:
+            logger.info("[ENRICH] No known spam found in raw_emails to override.")
+            return 0
+
+        # Update the results table for the found spam IDs
+        chunk_size = 500
+        total_updated = 0
+        
+        for i in range(0, len(spam_ids), chunk_size):
+            batch_ids = spam_ids[i:i + chunk_size]
+            
+            stmt = (
+                update(results_classifications)
+                .where(results_classifications.c.email_id.in_(batch_ids))
+                .values(
+                    label="spam",
+                    priority="low",
+                    sender_type="spam",
+                    intent="other",
+                    sentiment="neutral",
+                    summary="Automated spam detection (Retroactive DB correction).",
+                    confidence=1.0,
+                    label_source="ground_truth_correction"
+                )
+            )
+            result = conn.execute(stmt)
+            total_updated += result.rowcount
+
+        if total_updated > 0:
+            logger.info(f"[ENRICH] Successfully overwrote {total_updated} existing classifications as spam.")
+        return total_updated
+
+
+# ════════════════════════════════════════════════════════════════
+#  PART B — Classification
 # ════════════════════════════════════════════════════════════════
 
 def run_classification(engine: Engine, dataset_name: str = None, limit: int = None) -> int:
     """
-    Classify unclassified cleaned emails via Claude API.
+    Classify unclassified cleaned emails via LLM API.
     Returns number of newly classified emails.
     """
     import os
-    # client = Groq(api_key=os.getenv("GROQ_API_KEY")    )
-    # client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
-    # client = OpenAI(base_url = "https://generativelanguage.googleapis.com/v1beta/openai/", api_key=os.getenv("GEMINI_API_KEY"))
     client = OpenAI(
-        base_url="https://purple-recommendation-powerseller-married.trycloudflare.com/v1",
+        base_url="https://engage-injuries-paxil-mazda.trycloudflare.com/v1",
         api_key="ollama" 
     )
     MODEL = "llama3.1:8b"
-    # MODEL = "gemini-2.5-flash"
+    
     with engine.connect() as conn:
         already_done = set(
             r[0] for r in conn.execute(select(results_classifications.c.email_id)).fetchall()
@@ -119,25 +187,24 @@ def run_classification(engine: Engine, dataset_name: str = None, limit: int = No
 
         with engine.begin() as conn:
             for row, label in zip(batch, labels):
-
                 conf_map = {"high": 0.9, "medium": 0.6, "low": 0.3}
                 conf_str = str(label.get("confidence", "low")).lower()
 
                 try:
                     conn.execute(
                         insert(results_classifications).values(
-                            email_id     = row[0],
-                            label        = label.get("priority", "normal"),  # primary label
-                            priority     = label.get("priority",    "normal"),
-                            sender_type  = label.get("sender_type", "unknown"),
-                            intent       = label.get("intent",      "other"),
-                            sentiment    = label.get("sentiment",   "neutral"),
-                            summary      = label.get("summary",     ""),
-                            reason       = label.get("reason",      ""),
+                            email_id       = row[0],
+                            label          = label.get("priority", "normal"),  # primary label
+                            priority       = label.get("priority",    "normal"),
+                            sender_type    = label.get("sender_type", "unknown"),
+                            intent         = label.get("intent",      "other"),
+                            sentiment      = label.get("sentiment",   "neutral"),
+                            summary        = label.get("summary",     ""),
+                            reason         = label.get("reason",      ""),
                             follow_up_date = label.get("follow_up_date", None),
-                            confidence   = conf_map.get(conf_str, 0.5),         # populated in OSS phase
-                            label_source ="groq_8b",
-                            model_used   = MODEL,
+                            confidence     = conf_map.get(conf_str, 0.5),         # populated in OSS phase
+                            label_source   ="groq_8b",
+                            model_used     = MODEL,
                         )
                     )
                     classified += 1
@@ -158,8 +225,6 @@ def _classify_with_retry(client, emails: list[dict]) -> list[dict]:
                 "intent": "other", "sentiment": "neutral", "summary": "Classification unavailable.", "confidence": "low"}
     
     prompt_content = _build_prompt(emails)
-    # MODEL = "gemini-2.5-flash"
-    # MODEL = "llama-3.1-8b-instant" # FOR OLLAMA
     MODEL = "llama3.1:8b"  
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -170,7 +235,6 @@ def _classify_with_retry(client, emails: list[dict]) -> list[dict]:
                     {"role": "user", "content": prompt_content}
                 ],
                 response_format={"type": "json_object"},
-                # max_tokens=4000,
                 max_tokens=4000,
                 temperature=0.0 # Strict determinism for labeling
             )
@@ -188,23 +252,17 @@ def _classify_with_retry(client, emails: list[dict]) -> list[dict]:
             else:
                 logger.warning(f"Batch size mismatch. Expected {len(emails)}, got {len(results_array)}")
                 
-        # except groq.RateLimitError as e:
-        #     # Groq Free Tier TPM/RPM limits backoff
-        #     wait = 10 * (2 ** attempt) 
-        #     logger.warning(f"Groq Rate limit hit — waiting {wait}s.")
-        #     time.sleep(wait)
         except json.JSONDecodeError as e:
             logger.error(f"JSON Parse Error on attempt {attempt}: {e}. The model likely hit a token limit or hallucinated.")
             time.sleep(5) # Give the API a moment before retrying
         except Exception as e:
             logger.error(f"Classification attempt {attempt} failed: {e}")
-            # If we hit a 429 or 503, wait longer
             time.sleep(0.1)
 
     return [fallback.copy() for _ in emails]
 
 # ════════════════════════════════════════════════════════════════
-#  PART B — Analytics Aggregates
+#  PART C — Analytics Aggregates
 # ════════════════════════════════════════════════════════════════
 
 def run_aggregates(engine: Engine) -> None:
@@ -259,6 +317,9 @@ def _build_sender_profiles(engine: Engine):
             else:
                 trend = "stable"
 
+            first_at = _parse_single_dt(first_at)
+            last_at  = _parse_single_dt(last_at)
+
             conn.execute(insert(results_sender_profiles).values(
                 sender_id            = sender_id,
                 email_address        = email_addr,
@@ -310,6 +371,8 @@ def _build_vendor_metrics(engine: Engine):
             min_gap = round(min(gaps), 1) if gaps else None
             max_gap = round(max(gaps), 1) if gaps else None
 
+            last_at = _parse_single_dt(last_at)
+
             conn.execute(insert(results_vendor_metrics).values(
                 vendor_domain    = domain,
                 email_count      = count,
@@ -356,7 +419,7 @@ def _build_client_trails(engine: Engine):
                 "email_address": r[2], "subject":  r[3],
                 "summary":     r[4],  "priority":  r[5],
                 "intent":      r[6],  "sentiment": r[7],
-                "timestamp":   r[8],  "sequence_num": seq_map[sender_id],
+                "timestamp":   _parse_single_dt(r[8]),  "sequence_num": seq_map[sender_id],
             })
 
         if trail_rows:
@@ -384,6 +447,17 @@ def _parse_timestamps(csv_str: Optional[str]) -> list:
             pass
     return sorted(result)
 
+def _parse_single_dt(dt_val):
+    if not dt_val: 
+        return None
+    if hasattr(dt_val, "isoformat"): 
+        return dt_val
+    
+    from dateutil import parser as dp
+    try:
+        return dp.parse(str(dt_val))
+    except Exception:
+        return None
 
 # ════════════════════════════════════════════════════════════════
 #  Combined entry point
@@ -391,10 +465,15 @@ def _parse_timestamps(csv_str: Optional[str]) -> list:
 
 def run(engine: Engine, dataset_name: str = None, limit: int = None, skip_classification: bool = False, skip_aggregates: bool = False) -> dict:
     results = {}
+    
+    # 1. First, correct any existing data in the database
+    results["spam_overridden"] = override_existing_spam(engine)
+
+    # 2. Run new LLM classifications
     if not skip_classification:
         results["classified"] = run_classification(engine, dataset_name=dataset_name, limit=limit)
     
-    # Skip heavy analytics until all Phase 1 labeling is done
+    # 3. Build aggregates using the perfectly clean data
     if not skip_aggregates:
         run_aggregates(engine)
         

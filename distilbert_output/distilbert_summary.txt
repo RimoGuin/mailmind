@@ -1,0 +1,39 @@
+DISTILBERT SUMMARY
+============================================================
+
+PRIORITY
+  Model      : distilbert-base-uncased fine-tuned
+  Macro-F1   : 0.6749
+  Weighted-F1: 0.7339
+  Accuracy   : 0.7299
+  Classes    : action_needed, low, normal
+  Train/Test : 4,361 / 770
+
+  action_needed        P=0.45  R=0.59  F1=0.51  n=96
+  low                  P=0.83  R=0.66  F1=0.73  n=215
+  normal               P=0.77  R=0.79  F1=0.78  n=459
+
+SENDER_TYPE
+  Model      : distilbert-base-uncased fine-tuned
+  Macro-F1   : 0.7093
+  Weighted-F1: 0.7335
+  Accuracy   : 0.7431
+  Classes    : internal, personal, spam, vendor
+  Train/Test : 4,322 / 763
+
+  internal             P=0.76  R=0.85  F1=0.80  n=427
+  personal             P=0.53  R=0.65  F1=0.58  n=40
+  spam                 P=0.96  R=0.95  F1=0.96  n=103
+  vendor               P=0.59  R=0.42  F1=0.50  n=193
+
+INTENT
+  Model      : distilbert-base-uncased fine-tuned
+  Macro-F1   : 0.7179
+  Weighted-F1: 0.7307
+  Accuracy   : 0.7260
+  Classes    : action, info, other
+  Train/Test : 4,361 / 770
+
+  action               P=0.53  R=0.63  F1=0.58  n=193
+  info                 P=0.81  R=0.74  F1=0.78  n=429
+  other                P=0.80  R=0.80  F1=0.80  n=148

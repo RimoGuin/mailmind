@@ -9,3 +9,9 @@ uvicorn
 python-dotenv
 streamlit
 requests
+matplotlib
+scikit-learn
+transformers 
+torch 
+datasets 
+accelerate

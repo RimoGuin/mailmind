@@ -1,0 +1,14 @@
+TARGET: priority
+Model: distilbert-base-uncased fine-tuned
+Train: 4,361 | Test: 770
+Best epoch macro-F1: 0.6749
+
+               precision    recall  f1-score   support
+
+action_needed       0.45      0.59      0.51        96
+          low       0.83      0.66      0.73       215
+       normal       0.77      0.79      0.78       459
+
+     accuracy                           0.73       770
+    macro avg       0.68      0.68      0.67       770
+ weighted avg       0.75      0.73      0.73       770
