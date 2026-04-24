@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111318;
+    --surface2: #181c22;
+    --surface3: #1e232b;
+    --border: #252b35;
+    --border2: #2e3540;
+    --text: #e8eaf0;
+    --muted: #6b7585;
+    --muted2: #4a5260;
+    --accent: #4f8eff;
+    --accent2: #2563eb;
+    --red: #ef4444;
+    --orange: #f97316;
+    --yellow: #eab308;
+    --green: #22c55e;
+    --teal: #14b8a6;
+    --purple: #a855f7;
+    --pink: #ec4899;
+    --font-body: 'Geist', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --font-serif: 'Instrument Serif', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    font-family: var(--font-serif);
+    font-size: 20px;
+    color: var(--text);
+    font-style: italic;
+  }
+  .logo span { color: var(--accent); }
+  .header-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .header-time {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 28px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-badge {
+    background: var(--surface3);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border2);
+  }
+  .tab.active .tab-badge {
+    background: rgba(79,142,255,0.12);
+    color: var(--accent);
+    border-color: rgba(79,142,255,0.3);
+  }
+
+  /* ── CONTENT ── */
+  .content { padding: 24px 28px; max-width: 1200px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── SHARED COMPONENTS ── */
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ── TAB 1: PRIORITY INBOX ── */
+  .inbox-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    background: var(--surface2);
+    transition: all 0.15s;
+  }
+  .filter-pill:hover, .filter-pill.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(79,142,255,0.08);
+  }
+
+  .email-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .email-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 6px 36px 1fr auto;
+    gap: 12px;
+    align-items: start;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .email-row::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .email-row:hover {
+    border-color: var(--border2);
+    background: var(--surface2);
+  }
+  .email-row.critical::before { background: var(--red); }
+  .email-row.high::before { background: var(--orange); }
+  .email-row.medium::before { background: var(--yellow); }
+  .email-row.low::before { background: var(--green); }
+  .email-row.info::before { background: var(--accent); }
+
+  .priority-bar { width: 3px; } /* spacer for the ::before */
+
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .email-main { min-width: 0; }
+  .email-header-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .email-sender { font-weight: 600; font-size: 13px; color: var(--text); }
+  .email-company { font-size: 11px; color: var(--muted); }
+
+  .priority-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .tag-critical { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
+  .tag-high { background: rgba(249,115,22,0.15); color: var(--orange); border: 1px solid rgba(249,115,22,0.25); }
+  .tag-medium { background: rgba(234,179,8,0.15); color: var(--yellow); border: 1px solid rgba(234,179,8,0.25); }
+  .tag-low { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+  .tag-info { background: rgba(79,142,255,0.12); color: var(--accent); border: 1px solid rgba(79,142,255,0.25); }
+
+  .email-subject { font-size: 13px; color: var(--text); margin-bottom: 5px; font-weight: 500; }
+  .email-reasoning {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  .reasoning-icon { opacity: 0.5; flex-shrink: 0; margin-top: 1px; }
+
+  .email-meta { text-align: right; flex-shrink: 0; }
+  .email-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+  .email-score {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 300;
+    margin-top: 4px;
+  }
+  .score-critical { color: var(--red); }
+  .score-high { color: var(--orange); }
+  .score-medium { color: var(--yellow); }
+  .score-low { color: var(--green); }
+  .score-info { color: var(--accent); }
+
+  /* ── TAB 2: VENDOR HEALTH ── */
+  .vendor-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .vendor-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    font-weight: 400;
+  }
+  .vendor-table td {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .vendor-table tr:last-child td { border-bottom: none; }
+  .vendor-table tr:hover td { background: var(--surface2); }
+
+  .vendor-name { font-weight: 600; font-size: 13px; }
+  .vendor-category { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+
+  .health-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .health-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--surface3);
+    border-radius: 2px;
+    overflow: hidden;
+    max-width: 80px;
+  }
+  .health-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+  }
+  .health-val { font-family: var(--font-mono); font-size: 12px; min-width: 28px; }
+
+  .trend-spark { width: 80px; height: 28px; }
+
+  .sla-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 500;
+    font-family: var(--font-mono);
+  }
+  .sla-ok { background: rgba(34,197,94,0.1); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+  .sla-warn { background: rgba(234,179,8,0.1); color: var(--yellow); border: 1px solid rgba(234,179,8,0.2); }
+  .sla-breach { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+
+  .alert-strip {
+    background: rgba(239,68,68,0.07);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .alert-icon { color: var(--red); flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+  .alert-text { font-size: 12px; color: var(--text); line-height: 1.6; }
+  .alert-text strong { color: var(--red); }
+
+  /* ── TAB 3: THREAD INTEL ── */
+  .thread-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; min-height: 500px; }
+
+  .thread-list { display: flex; flex-direction: column; gap: 6px; }
+  .thread-item {
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .thread-item:hover, .thread-item.active {
+    border-color: var(--accent);
+    background: rgba(79,142,255,0.05);
+  }
+  .thread-subject { font-weight: 500; font-size: 12px; margin-bottom: 4px; }
+  .thread-meta { font-size: 10px; color: var(--muted); display: flex; gap: 8px; }
+  .thread-replies {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: var(--muted);
+  }
+
+  .thread-detail { display: flex; flex-direction: column; gap: 16px; }
+
+  .detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .detail-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .summary-text {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .action-list { display: flex; flex-direction: column; gap: 8px; }
+  .action-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface2);
+    border-radius: 7px;
+    border: 1px solid var(--border);
+  }
+  .action-check {
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--border2);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .action-check:hover { border-color: var(--accent); }
+  .action-check.done { background: var(--accent); border-color: var(--accent); }
+  .action-text { font-size: 12px; line-height: 1.5; }
+  .action-owner {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .sentiment-timeline { position: relative; }
+  .sentiment-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .sentiment-row:last-child { border-bottom: none; }
+  .sentiment-date { font-family: var(--font-mono); font-size: 10px; color: var(--muted); width: 70px; flex-shrink: 0; }
+  .sentiment-bar-wrap { flex: 1; display: flex; align-items: center; gap: 8px; }
+  .sent-bar {
+    height: 6px;
+    border-radius: 3px;
+  }
+  .sent-label { font-size: 11px; }
+  .sent-positive { background: var(--green); color: var(--green); }
+  .sent-neutral { background: var(--muted2); color: var(--muted); }
+  .sent-negative { background: var(--red); color: var(--red); }
+  .sent-tense { background: var(--orange); color: var(--orange); }
+  .sentiment-author { font-size: 11px; color: var(--muted); width: 100px; flex-shrink: 0; text-align: right; }
+
+  /* ── TAB 4: SMART DIGEST ── */
+  .digest-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .digest-greeting {
+    font-family: var(--font-serif);
+    font-size: 28px;
+    font-style: italic;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .digest-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .digest-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .stat-val {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 300;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); }
+  .stat-delta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    margin-top: 6px;
+  }
+  .delta-up { color: var(--green); }
+  .delta-down { color: var(--red); }
+
+  .digest-sections { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+
+  .briefing-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .briefing-item:last-child { border-bottom: none; }
+  .briefing-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted2);
+    width: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .briefing-content { flex: 1; }
+  .briefing-title { font-weight: 500; font-size: 13px; margin-bottom: 4px; }
+  .briefing-body { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .briefing-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .btag {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+  }
+
+  .focus-list { display: flex; flex-direction: column; gap: 8px; }
+  .focus-item {
+    padding: 12px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .focus-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .focus-text { font-size: 12px; line-height: 1.5; }
+  .focus-text strong { color: var(--text); }
+
+  /* Responsive tweaks */
+  @media (max-width: 768px) {
+    .thread-layout { grid-template-columns: 1fr; }
+    .digest-sections { grid-template-columns: 1fr; }
+    .digest-stats { grid-template-columns: repeat(2, 1fr); }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">Mail<span>Intel</span></div>
+    <div class="header-meta">DASHBOARD v1.0</div>
+  </div>
+  <div class="header-time">
+    <span class="status-dot"></span>
+    <span id="clock"></span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('inbox', this)">
+    ◈ Priority Inbox <span class="tab-badge">12</span>
+  </div>
+  <div class="tab" onclick="switchTab('vendor', this)">
+    ◎ Vendor Health <span class="tab-badge">3 alerts</span>
+  </div>
+  <div class="tab" onclick="switchTab('thread', this)">
+    ⊞ Thread Intel <span class="tab-badge">5</span>
+  </div>
+  <div class="tab" onclick="switchTab('digest', this)">
+    ◐ Smart Digest <span class="tab-badge">today</span>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- ══════════════════════════════════════════════
+       TAB 1: PRIORITY INBOX
+  ══════════════════════════════════════════════ -->
+  <div class="panel active" id="panel-inbox">
+    <div class="inbox-filters">
+      <div class="filter-pill active" onclick="filterEmails('all', this)">All</div>
+      <div class="filter-pill" onclick="filterEmails('critical', this)">Critical</div>
+      <div class="filter-pill" onclick="filterEmails('high', this)">High</div>
+      <div class="filter-pill" onclick="filterEmails('medium', this)">Medium</div>
+      <div class="filter-pill" onclick="filterEmails('low', this)">Low</div>
+    </div>
+    <div class="email-list" id="email-list"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       TAB 2: VENDOR HEALTH
+  ══════════════════════════════════════════════ -->
+  <div class="panel" id="panel-vendor">
+    <div class="alert-strip">
+      <div class="alert-icon">▲</div>
+      <div class="alert-text">
+        <strong>3 SLA breaches detected.</strong> Apex Logistics has not responded in 72h (SLA: 24h).
+        CloudSync Pro invoice overdue by 14 days. DataBridge API degraded — 3 tickets unacknowledged.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label" style="margin-bottom: 16px;">Vendor health scores</div>
+      <table class="vendor-table">
+        <thead>
+          <tr>
+            <th>Vendor</th>
+            <th>Health</th>
+            <th>30-day trend</th>
+            <th>Response SLA</th>
+            <th>Open tickets</th>
+            <th>Last contact</th>
+          </tr>
+        </thead>
+        <tbody id="vendor-tbody"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <div class="section-label">Health trend — all vendors (30 days)</div>
+      <div class="card" style="margin-top: 8px;">
+        <canvas id="vendorTrendChart" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       TAB 3: THREAD INTEL
+  ══════════════════════════════════════════════ -->
+  <div class="panel" id="panel-thread">
+    <div class="thread-layout">
+      <div>
+        <div class="section-label">Email threads</div>
+        <div class="thread-list" id="thread-list"></div>
+      </div>
+      <div class="thread-detail" id="thread-detail"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       TAB 4: SMART DIGEST
+  ══════════════════════════════════════════════ -->
+  <div class="panel" id="panel-digest">
+    <div class="digest-header">
+      <div>
+        <div class="digest-greeting">Good morning, here's<br>your briefing.</div>
+      </div>
+      <div class="digest-date" id="digest-date"></div>
+    </div>
+
+    <div class="digest-stats">
+      <div class="stat-card">
+        <div class="stat-val" style="color: var(--red);">4</div>
+        <div class="stat-label">Critical emails</div>
+        <div class="stat-delta delta-down">▲ 2 from yesterday</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color: var(--orange);">18</div>
+        <div class="stat-label">Unread total</div>
+        <div class="stat-delta delta-up">▼ 6 from yesterday</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color: var(--yellow);">3</div>
+        <div class="stat-label">SLA breaches</div>
+        <div class="stat-delta delta-down">▲ 1 new</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color: var(--green);">7</div>
+        <div class="stat-label">Resolved threads</div>
+        <div class="stat-delta delta-up">▲ 3 from yesterday</div>
+      </div>
+    </div>
+
+    <div class="digest-sections">
+      <div>
+        <div class="section-label" style="margin-bottom: 12px;">Morning briefing</div>
+        <div class="card">
+          <div id="briefing-list"></div>
+        </div>
+      </div>
+      <div>
+        <div class="section-label" style="margin-bottom: 12px;">Focus for today</div>
+        <div class="focus-list" id="focus-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<script>
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+updateClock(); setInterval(updateClock, 1000);
+
+// ── DIGEST DATE ──
+const dateEl = document.getElementById('digest-date');
+if (dateEl) {
+  dateEl.textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+}
+
+// ── TAB SWITCHING ──
+function switchTab(name, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  el.classList.add('active');
+  if (name === 'vendor') renderVendorChart();
+}
+
+// ══════════════════════════════════
+// TAB 1 DATA
+// ══════════════════════════════════
+async function loadData() {
+    const [emails, vendors, threads] = await Promise.all([
+        fetch("http://localhost:8000/emails/ranked").then(r => r.json()),
+        fetch("http://localhost:8000/vendors/health").then(r => r.json()),
+        fetch("http://localhost:8000/threads").then(r => r.json()),
+    ]);
+    renderEmails(emails);
+    renderVendors(vendors);
+    renderThreadList(threads);
+    renderThreadDetail(threads[0]);
+}
+
+loadData();
+
+function renderEmails(filter) {
+  const list = document.getElementById('email-list');
+  const filtered = filter === 'all' ? emails : emails.filter(e => e.priority === filter);
+  list.innerHTML = filtered.map(e => `
+    <div class="email-row ${e.priority}">
+      <div class="priority-bar"></div>
+      <div class="avatar" style="background:${e.avatarBg};color:${e.avatarColor}">${e.avatar}</div>
+      <div class="email-main">
+        <div class="email-header-row">
+          <span class="email-sender">${e.sender}</span>
+          <span class="email-company">${e.company}</span>
+          <span class="priority-tag tag-${e.priority}">${e.priority}</span>
+        </div>
+        <div class="email-subject">${e.subject}</div>
+        <div class="email-reasoning">
+          <span class="reasoning-icon">↳</span>
+          ${e.reasoning}
+        </div>
+      </div>
+      <div class="email-meta">
+        <div class="email-time">${e.time}</div>
+        <div class="email-score score-${e.priority}">${e.score}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterEmails(filter, el) {
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderEmails(filter);
+}
+
+renderEmails('all');
+
+// ══════════════════════════════════
+// TAB 2 DATA
+// ══════════════════════════════════
+const vendors = [
+  { name: 'Apex Logistics', cat: 'FREIGHT', health: 32, trend: [70,65,58,50,42,35,32], sla: 'breach', tickets: 4, last: '4 days ago' },
+  { name: 'CloudSync Pro', cat: 'SAAS', health: 48, trend: [80,75,70,65,58,52,48], sla: 'breach', tickets: 2, last: '2 days ago' },
+  { name: 'DataBridge API', cat: 'INTEGRATION', health: 55, trend: [85,80,75,70,65,60,55], sla: 'breach', tickets: 3, last: '1 day ago' },
+  { name: 'Novo Packaging', cat: 'SUPPLIER', health: 78, trend: [72,74,76,75,77,78,78], sla: 'warn', tickets: 1, last: '3 hours ago' },
+  { name: 'Crane & Associates', cat: 'LEGAL', health: 91, trend: [88,89,90,90,91,91,91], sla: 'ok', tickets: 0, last: 'Today' },
+  { name: 'Office Supplies Co.', cat: 'PROCUREMENT', health: 96, trend: [94,95,95,96,96,96,96], sla: 'ok', tickets: 0, last: 'Today' },
+];
+
+function healthColor(v) {
+  if (v < 50) return '#ef4444';
+  if (v < 70) return '#f97316';
+  if (v < 85) return '#eab308';
+  return '#22c55e';
+}
+
+function renderVendors() {
+  const tbody = document.getElementById('vendor-tbody');
+  tbody.innerHTML = vendors.map((v, i) => `
+    <tr>
+      <td>
+        <div class="vendor-name">${v.name}</div>
+        <div class="vendor-category">${v.cat}</div>
+      </td>
+      <td>
+        <div class="health-bar-wrap">
+          <div class="health-bar">
+            <div class="health-bar-fill" style="width:${v.health}%;background:${healthColor(v.health)}"></div>
+          </div>
+          <span class="health-val" style="color:${healthColor(v.health)}">${v.health}</span>
+        </div>
+      </td>
+      <td><canvas class="trend-spark" id="spark-${i}"></canvas></td>
+      <td>
+        <span class="sla-badge sla-${v.sla}">
+          ${v.sla === 'ok' ? '✓ OK' : v.sla === 'warn' ? '⚠ WARN' : '✕ BREACH'}
+        </span>
+      </td>
+      <td style="font-family:var(--font-mono);color:${v.tickets > 0 ? '#f97316' : '#6b7585'}">${v.tickets}</td>
+      <td style="font-size:11px;color:var(--muted)">${v.last}</td>
+    </tr>
+  `).join('');
+}
+
+renderVendors();
+
+let vendorChartInstance = null;
+
+function renderVendorChart() {
+  renderSparklines();
+  const ctx = document.getElementById('vendorTrendChart');
+  if (!ctx) return;
+  if (vendorChartInstance) { vendorChartInstance.destroy(); vendorChartInstance = null; }
+  const labels = ['24d', '20d', '16d', '12d', '8d', '4d', 'Today'];
+  vendorChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: vendors.map((v, i) => ({
+        label: v.name,
+        data: v.trend,
+        borderColor: healthColor(v.health),
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.4,
+      }))
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#6b7585', font: { family: 'DM Mono', size: 10 }, boxWidth: 12 } }
+      },
+      scales: {
+        x: { grid: { color: '#252b35' }, ticks: { color: '#6b7585', font: { family: 'DM Mono', size: 10 } } },
+        y: { min: 0, max: 100, grid: { color: '#252b35' }, ticks: { color: '#6b7585', font: { family: 'DM Mono', size: 10 } } }
+      }
+    }
+  });
+}
+
+const sparkInstances = {};
+function renderSparklines() {
+  vendors.forEach((v, i) => {
+    const el = document.getElementById('spark-' + i);
+    if (!el) return;
+    if (sparkInstances[i]) { sparkInstances[i].destroy(); }
+    sparkInstances[i] = new Chart(el, {
+      type: 'line',
+      data: {
+        labels: v.trend.map(() => ''),
+        datasets: [{ data: v.trend, borderColor: healthColor(v.health), borderWidth: 1.5, pointRadius: 0, tension: 0.4, backgroundColor: 'transparent' }]
+      },
+      options: {
+        responsive: false,
+        animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { display: false }, y: { display: false, min: 0, max: 100 } }
+      }
+    });
+  });
+}
+
+// ══════════════════════════════════
+// TAB 3 DATA
+// ══════════════════════════════════
+const threads = [
+  {
+    subject: 'Shipment #4820 customs hold',
+    participants: 'Sarah Chen, Mike Ross, +2',
+    replies: 8,
+    summary: 'Apex Logistics shipment #4820 is held at Mumbai customs due to a missing HS code on 3 line items. Sarah Chen escalated after 48h of no movement. Customs broker requires an amended commercial invoice and a signed letter of intent. Contract penalty clause (§12.4) activates if not cleared by 3 PM today.',
+    actions: [
+      { text: 'Amend commercial invoice — correct HS codes for items 3, 7, 11', owner: 'You', done: false },
+      { text: 'Forward signed letter of intent to customs broker (sarah@apex.co)', owner: 'You', done: false },
+      { text: 'Confirm receipt with Sarah Chen by 1 PM', owner: 'You', done: false },
+      { text: 'Notify legal if not resolved by 2:30 PM', owner: 'Legal', done: false },
+    ],
+    sentiment: [
+      { date: 'Apr 18', label: 'Collaborative', cls: 'sent-positive', width: '65%', author: 'Sarah Chen' },
+      { date: 'Apr 19', label: 'Neutral', cls: 'sent-neutral', width: '50%', author: 'Mike Ross' },
+      { date: 'Apr 20', label: 'Tense', cls: 'sent-tense', width: '70%', author: 'Sarah Chen' },
+      { date: 'Apr 21', label: 'Negative', cls: 'sent-negative', width: '80%', author: 'Sarah Chen' },
+      { date: 'Today', label: 'Urgent', cls: 'sent-negative', width: '95%', author: 'Sarah Chen' },
+    ]
+  },
+  {
+    subject: 'NDA amendment — Crane & Associates',
+    participants: 'Michael Torres, Anna Lee',
+    replies: 4,
+    summary: 'Crane & Associates submitted an amended NDA extending confidentiality from 2 to 5 years and adding a non-solicitation clause covering sub-contractors. Legal reviewed and flagged clause 8b as potentially overreaching. Michael Torres requests signature by 5 PM or the partnership agreement reverts to prior terms.',
+    actions: [
+      { text: 'Review clause 8b with internal legal team', owner: 'Legal', done: false },
+      { text: 'Negotiate clause 8b or approve as-is by 4 PM', owner: 'You', done: false },
+      { text: 'Sign and return NDA via DocuSign before 5 PM', owner: 'You', done: false },
+    ],
+    sentiment: [
+      { date: 'Apr 19', label: 'Formal', cls: 'sent-neutral', width: '40%', author: 'M. Torres' },
+      { date: 'Apr 20', label: 'Positive', cls: 'sent-positive', width: '60%', author: 'M. Torres' },
+      { date: 'Apr 21', label: 'Neutral', cls: 'sent-neutral', width: '45%', author: 'Anna Lee' },
+      { date: 'Today', label: 'Pressing', cls: 'sent-tense', width: '72%', author: 'M. Torres' },
+    ]
+  },
+  {
+    subject: 'CloudSync Pro invoice overdue',
+    participants: 'Priya Nair, Finance team',
+    replies: 5,
+    summary: 'Invoice #CS-2241 for $14,400 is 14 days overdue. CloudSync has issued a 3rd payment notice and indicated service suspension will begin in 48 hours if payment is not received. Finance confirmed the invoice was approved but PO number was missing, causing processing delay.',
+    actions: [
+      { text: 'Finance to add PO #4499 and reprocess invoice today', owner: 'Finance', done: true },
+      { text: 'Confirm payment ETA to Priya Nair', owner: 'You', done: false },
+      { text: 'Request 72h extension if needed', owner: 'You', done: false },
+    ],
+    sentiment: [
+      { date: 'Apr 7', label: 'Neutral', cls: 'sent-neutral', width: '40%', author: 'Priya Nair' },
+      { date: 'Apr 14', label: 'Concerned', cls: 'sent-tense', width: '55%', author: 'Priya Nair' },
+      { date: 'Apr 20', label: 'Frustrated', cls: 'sent-negative', width: '75%', author: 'Priya Nair' },
+      { date: 'Today', label: 'Threatening', cls: 'sent-negative', width: '90%', author: 'Priya Nair' },
+    ]
+  },
+  {
+    subject: 'DataBridge API — support tickets',
+    participants: 'James Liu, DevOps, +1',
+    replies: 11,
+    summary: 'Three support tickets (DB-9910, DB-9914, DB-9921) remain unacknowledged after 48h. The API degradation is causing intermittent 503 errors in the order sync pipeline — roughly 12% of sync jobs are failing and require manual retry. DataBridge SLA tier 1 guarantees 4h response.',
+    actions: [
+      { text: 'Escalate tickets DB-9910, 9914, 9921 to DataBridge account manager', owner: 'DevOps', done: false },
+      { text: 'Enable manual retry fallback in order sync pipeline', owner: 'DevOps', done: true },
+      { text: 'Prepare SLA breach documentation if no response by EOD', owner: 'You', done: false },
+    ],
+    sentiment: [
+      { date: 'Apr 19', label: 'Neutral', cls: 'sent-neutral', width: '40%', author: 'James Liu' },
+      { date: 'Apr 20', label: 'Concerned', cls: 'sent-tense', width: '60%', author: 'James Liu' },
+      { date: 'Apr 21', label: 'Frustrated', cls: 'sent-negative', width: '75%', author: 'James Liu' },
+      { date: 'Today', label: 'Escalating', cls: 'sent-negative', width: '85%', author: 'James Liu' },
+    ]
+  },
+  {
+    subject: 'Q2 performance reviews due Friday',
+    participants: 'Elena Vasquez, HR, +14',
+    replies: 3,
+    summary: 'HR requires Q2 performance review submissions for 14 direct reports by Friday 5 PM. Late submissions delay the payroll processing cycle and may impact bonus calculations. Elena provided the submission portal link and template. 6 of 14 reports already submitted.',
+    actions: [
+      { text: 'Complete remaining 8 performance reviews by Thursday', owner: 'You', done: false },
+      { text: 'Remind 3 team leads who haven\'t submitted', owner: 'You', done: false },
+    ],
+    sentiment: [
+      { date: 'Apr 20', label: 'Informative', cls: 'sent-neutral', width: '35%', author: 'E. Vasquez' },
+      { date: 'Today', label: 'Reminder', cls: 'sent-neutral', width: '45%', author: 'E. Vasquez' },
+    ]
+  },
+];
+
+let activeThread = 0;
+
+function renderThreadList() {
+  const list = document.getElementById('thread-list');
+  list.innerHTML = threads.map((t, i) => `
+    <div class="thread-item ${i === activeThread ? 'active' : ''}" onclick="selectThread(${i})">
+      <div class="thread-subject">${t.subject}</div>
+      <div class="thread-meta">
+        <span>${t.participants}</span>
+        <span class="thread-replies">${t.replies} replies</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderThreadDetail(i) {
+  const t = threads[i];
+  const detail = document.getElementById('thread-detail');
+  detail.innerHTML = `
+    <div class="detail-card">
+      <div class="detail-title">◈ AI summary</div>
+      <div class="summary-text">${t.summary}</div>
+    </div>
+
+    <div class="detail-card">
+      <div class="detail-title">◎ Action items</div>
+      <div class="action-list">
+        ${t.actions.map((a, ai) => `
+          <div class="action-item">
+            <div class="action-check ${a.done ? 'done' : ''}" onclick="toggleAction(${i},${ai},this)">
+              ${a.done ? '<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+            </div>
+            <div class="action-text" style="${a.done ? 'opacity:0.4;text-decoration:line-through' : ''}">${a.text}</div>
+            <div class="action-owner">${a.owner}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="detail-title">◐ Sentiment timeline</div>
+      <div class="sentiment-timeline">
+        ${t.sentiment.map(s => `
+          <div class="sentiment-row">
+            <div class="sentiment-date">${s.date}</div>
+            <div class="sentiment-bar-wrap">
+              <div class="sent-bar ${s.cls}" style="width:${s.width}"></div>
+              <span class="sent-label ${s.cls}">${s.label}</span>
+            </div>
+            <div class="sentiment-author">${s.author}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function selectThread(i) {
+  activeThread = i;
+  renderThreadList();
+  renderThreadDetail(i);
+}
+
+function toggleAction(threadIdx, actionIdx, el) {
+  threads[threadIdx].actions[actionIdx].done = !threads[threadIdx].actions[actionIdx].done;
+  renderThreadDetail(threadIdx);
+}
+
+renderThreadList();
+renderThreadDetail(0);
+
+// ══════════════════════════════════
+// TAB 4 DATA
+// ══════════════════════════════════
+const briefings = [
+  {
+    title: 'Apex Logistics customs hold — action required by 3 PM',
+    body: 'Shipment #4820 blocked at Mumbai customs. Missing HS codes on 3 line items. Amended invoice and letter of intent needed immediately. Penalty clause activates in ~8 hours.',
+    tags: ['CRITICAL', 'LOGISTICS', 'TODAY']
+  },
+  {
+    title: 'NDA signature deadline at 5 PM',
+    body: 'Crane & Associates require signed NDA amendment today. Clause 8b flagged by legal. Partnership agreement reverts to prior terms if missed.',
+    tags: ['CRITICAL', 'LEGAL', 'TODAY']
+  },
+  {
+    title: 'CloudSync Pro invoice — 48h before suspension',
+    body: 'Finance reprocessing invoice with correct PO number. Confirm ETA to vendor today to avoid service disruption to production environment.',
+    tags: ['HIGH', 'FINANCE', 'VENDOR']
+  },
+  {
+    title: 'DataBridge API — 3 tickets unacknowledged for 48h',
+    body: 'Order sync pipeline at 12% failure rate. Escalate to account manager. Manual fallback enabled by DevOps — monitor through day.',
+    tags: ['HIGH', 'ENGINEERING', 'SLA']
+  },
+  {
+    title: 'Q2 performance reviews — 8 of 14 outstanding',
+    body: 'Due Friday 5 PM. Remaining 8 reviews need completion. 3 team leads yet to submit — send reminder today.',
+    tags: ['MEDIUM', 'HR', 'THIS WEEK']
+  },
+];
+
+const focuses = [
+  { icon: '▲', text: '<strong>09:00</strong> — Call customs broker re: Apex shipment HS codes' },
+  { icon: '▲', text: '<strong>11:00</strong> — Legal review of Crane & Associates clause 8b' },
+  { icon: '◎', text: '<strong>12:00</strong> — Confirm CloudSync payment ETA with Finance' },
+  { icon: '◎', text: '<strong>14:00</strong> — Escalate DataBridge tickets to account manager' },
+  { icon: '◐', text: '<strong>16:00</strong> — Sign and return NDA via DocuSign' },
+  { icon: '◐', text: '<strong>EOD</strong> — Begin 3 pending performance reviews' },
+];
+
+document.getElementById('briefing-list').innerHTML = briefings.map((b, i) => `
+  <div class="briefing-item">
+    <div class="briefing-num">0${i+1}</div>
+    <div class="briefing-content">
+      <div class="briefing-title">${b.title}</div>
+      <div class="briefing-body">${b.body}</div>
+      <div class="briefing-tags">
+        ${b.tags.map(t => `<span class="btag">${t}</span>`).join('')}
+      </div>
+    </div>
+  </div>
+`).join('');
+
+document.getElementById('focus-list').innerHTML = focuses.map(f => `
+  <div class="focus-item">
+    <div class="focus-icon">${f.icon}</div>
+    <div class="focus-text">${f.text}</div>
+  </div>
+`).join('');
+</script>
+</body>
+</html>
