@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-from email_service import send_email
+from api.email_service import send_email
 
 app = FastAPI(title="Email Dashboard API", version="1.0.0")
 
