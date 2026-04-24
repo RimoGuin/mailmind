@@ -38,6 +38,8 @@ models/importance/*.joblib
 # --- Secrets & Config ---
 .env
 .flaskenv
+token.json
+credentials.json 
 
 # --- IDEs & System ---
 .vscode/

@@ -68,6 +68,6 @@ def fetch_emails(service, max_results=20, query=''):
             'body':       get_email_body(msg_data['payload']),
             'labels':     ', '.join(msg_data.get('labelIds', [])),
         }
-        emails.append(email_record)
+        emails.append(email_record) 
 
     return emails
